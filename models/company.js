@@ -45,19 +45,58 @@ class Company {
   }
 
   /** Find all companies.
-   *
+   * 
+   * Optional search filters:
+   *  - name: filter by company name: if the string “net” is passed in, this should find any company whose name contains the word “net”,
+   *      case-insensitive (so “Study Networks” should be included).
+   *  - minEmployees: filter to companies that have at least that number of employees.
+   *  - maxEmployees: filter to companies that have no more than that number of employees.
+   * 
    * Returns [{ handle, name, description, numEmployees, logoUrl }, ...]
    * */
 
-  static async findAll() {
-    const companiesRes = await db.query(
-          `SELECT handle,
+  static async findAll(searchFilters = {}) {
+    let query = `SELECT handle,
                   name,
                   description,
                   num_employees AS "numEmployees",
                   logo_url AS "logoUrl"
-           FROM companies
-           ORDER BY name`);
+            FROM companies`;
+
+    let whereExpressions = [];
+    let queryFilters = [];
+
+    const { name, minEmployees, maxEmployees } = searchFilters;
+
+    // If the minEmployees parameter is greater than the maxEmployees parameter, respond with a 400 error with an appropriate message.
+    if (minEmployees > maxEmployees) {
+      throw new BadRequestError("minEmployees must be less than maxEmployees");
+    }
+
+    // For each possible search term, add to whereExpressions and queryFilters so
+    // we can generate an expected SQL query
+  if (name) {
+      queryFilters.push(`%${name}%`);
+      whereExpressions.push(`name ILIKE $${queryFilters.length}`);
+    }
+
+    if (minEmployees !== undefined) {
+      queryFilters.push(minEmployees);
+      whereExpressions.push(`num_employees >= $${queryFilters.length}`);
+    }
+
+    if (maxEmployees !== undefined) {
+      queryFilters.push(maxEmployees);
+      whereExpressions.push(`num_employees <= $${queryFilters.length}`);
+    }
+
+    if (whereExpressions.length > 0) {
+      query += " WHERE " + whereExpressions.join(" AND ");
+    }
+
+    query += " ORDER BY name";
+    //  Send properly constructed string and return the results
+    const companiesRes = await db.query(query, queryFilters);
     return companiesRes.rows;
   }
 
@@ -78,7 +117,8 @@ class Company {
                   logo_url AS "logoUrl"
            FROM companies
            WHERE handle = $1`,
-        [handle]);
+        [handle]
+    );
 
     const company = companyRes.rows[0];
 

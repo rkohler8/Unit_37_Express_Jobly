@@ -106,6 +106,47 @@ describe("GET /companies", function () {
         .set("authorization", `Bearer ${u1Token}`);
     expect(resp.statusCode).toEqual(500);
   });
+
+  test("works: filtering", async function () {
+    const resp = await request(app)
+        .get("/companies")
+        .query({ minEmployees: 3 });
+    expect(resp.body).toEqual({
+      companies: [
+        {
+          handle: "c3",
+          name: "C3",
+          description: "Desc3",
+          numEmployees: 3,
+          logoUrl: "http://c3.img",
+        },
+      ],
+    });
+  });
+
+  test("works: filtering on all filters", async function () {
+    const resp = await request(app)
+        .get("/companies")
+        .query({ minEmployees: 2, maxEmployees: 3, name: "3" });
+    expect(resp.body).toEqual({
+      companies: [
+        {
+          handle: "c3",
+          name: "C3",
+          description: "Desc3",
+          numEmployees: 3,
+          logoUrl: "http://c3.img",
+        },
+      ],
+    });
+  });
+
+  test("bad request if invalid filter key", async function () {
+    const resp = await request(app)
+        .get("/companies")
+        .query({ minEmployees: 2, nope: "nope" });
+    expect(resp.statusCode).toEqual(400);
+  });
 });
 
 /************************************** GET /companies/:handle */
